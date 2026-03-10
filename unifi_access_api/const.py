@@ -1,4 +1,4 @@
-"""Constants for the Unifi Access API client."""
+"""Constants for the UniFi Access API client."""
 
 UNIFI_ACCESS_API_PORT = 12445
 DOORS_URL = "/api/v1/developer/doors"
