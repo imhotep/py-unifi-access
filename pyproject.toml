@@ -1,6 +1,6 @@
 [project]
 name = "py-unifi-access"
-version = "0.1.0"
+version = "1.1.0"
 description = "Async Python client for the UniFi Access local API with WebSocket event support"
 authors = [{ name = "imhotep" }]
 license = {text = "MIT"}
