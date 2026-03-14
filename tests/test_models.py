@@ -172,6 +172,32 @@ class TestDoorExtrasFlattening:
         updated = door.with_updates(door_thumbnail="/preview/new.png")
         assert updated.door_thumbnail == "/preview/new.png"
 
+    def test_extras_none_ignored(self) -> None:
+        """extras: None is safely ignored."""
+        door = Door.model_validate(
+            {"id": "door-001", "name": "Front Door", "extras": None}
+        )
+        assert door.door_thumbnail is None
+
+    def test_extras_non_dict_ignored(self) -> None:
+        """extras with a non-dict value (e.g. string) is safely ignored."""
+        door = Door.model_validate(
+            {"id": "door-001", "name": "Front Door", "extras": "unexpected"}
+        )
+        assert door.door_thumbnail is None
+
+    def test_explicit_top_level_wins_over_extras(self) -> None:
+        """Explicit top-level door_thumbnail beats extras value."""
+        door = Door.model_validate(
+            {
+                "id": "door-001",
+                "name": "Front Door",
+                "door_thumbnail": "/preview/explicit.png",
+                "extras": {"door_thumbnail": "/preview/extras.png"},
+            }
+        )
+        assert door.door_thumbnail == "/preview/explicit.png"
+
 
 # ---------------------------------------------------------------------------
 # DoorLockRule.model_dump(exclude_unset=True) — used by client

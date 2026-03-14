@@ -87,7 +87,13 @@ class Door(BaseModel, frozen=True):
     @model_validator(mode="before")
     @classmethod
     def _flatten_extras(cls, data: Any) -> Any:
-        """Flatten thumbnail fields from the nested extras dict."""
+        """
+        Flatten thumbnail fields from the nested ``extras`` dict.
+
+        Known fields are promoted to top-level; ``extras`` is removed
+        since ``Door`` does not use ``extra="allow"``.  ``setdefault``
+        ensures an explicit top-level value always wins over ``extras``.
+        """
         if isinstance(data, dict) and isinstance(extras := data.get("extras"), dict):
             data = {**data}
             data.pop("extras", None)
