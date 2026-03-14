@@ -78,6 +78,102 @@ class TestNormalizeName:
 
 
 # ---------------------------------------------------------------------------
+# Door extras flattening
+# ---------------------------------------------------------------------------
+
+
+class TestDoorExtrasFlattening:
+    def test_door_with_extras_flattened(self) -> None:
+        """Test that extras.door_thumbnail is flattened onto Door."""
+        door = Door.model_validate(
+            {
+                "id": "door-001",
+                "name": "Front Door",
+                "extras": {
+                    "door_thumbnail": "/preview/thumb.png",
+                    "door_thumbnail_last_update": 1700000000,
+                },
+            }
+        )
+        assert door.door_thumbnail == "/preview/thumb.png"
+        assert door.door_thumbnail_last_update == 1700000000
+
+    def test_door_without_extras(self) -> None:
+        """Test that Door without extras has None thumbnails."""
+        door = Door.model_validate(
+            {
+                "id": "door-001",
+                "name": "Front Door",
+            }
+        )
+        assert door.door_thumbnail is None
+        assert door.door_thumbnail_last_update is None
+
+    def test_door_with_empty_extras(self) -> None:
+        """Test that Door with empty extras has None thumbnails."""
+        door = Door.model_validate(
+            {
+                "id": "door-001",
+                "name": "Front Door",
+                "extras": {},
+            }
+        )
+        assert door.door_thumbnail is None
+        assert door.door_thumbnail_last_update is None
+
+    def test_extras_does_not_mutate_input(self) -> None:
+        """Validator must not mutate the caller's dict."""
+        raw: dict[str, Any] = {
+            "id": "door-001",
+            "name": "Front Door",
+            "extras": {"door_thumbnail": "/preview/thumb.png"},
+        }
+        Door.model_validate(raw)
+        assert "extras" in raw
+
+    def test_round_trip_with_thumbnail(self) -> None:
+        """model_dump → model_validate must preserve thumbnail fields."""
+        door = Door.model_validate(
+            {
+                "id": "door-001",
+                "name": "Front Door",
+                "extras": {
+                    "door_thumbnail": "/preview/thumb.png",
+                    "door_thumbnail_last_update": 1700000000,
+                },
+            }
+        )
+        restored = Door.model_validate(door.model_dump())
+        assert restored == door
+        assert restored.door_thumbnail == "/preview/thumb.png"
+        assert restored.door_thumbnail_last_update == 1700000000
+
+    def test_with_updates_preserves_thumbnail(self) -> None:
+        """with_updates on non-thumbnail field must keep thumbnail."""
+        door = Door.model_validate(
+            {
+                "id": "door-001",
+                "name": "Front Door",
+                "extras": {
+                    "door_thumbnail": "/preview/thumb.png",
+                    "door_thumbnail_last_update": 1700000000,
+                },
+            }
+        )
+        updated = door.with_updates(
+            door_lock_relay_status=DoorLockRelayStatus.UNLOCK,
+        )
+        assert updated.door_thumbnail == "/preview/thumb.png"
+        assert updated.door_thumbnail_last_update == 1700000000
+
+    def test_with_updates_can_set_thumbnail(self) -> None:
+        """with_updates can set thumbnail on a door that had none."""
+        door = Door.model_validate({"id": "door-001", "name": "Front Door"})
+        updated = door.with_updates(door_thumbnail="/preview/new.png")
+        assert updated.door_thumbnail == "/preview/new.png"
+
+
+# ---------------------------------------------------------------------------
 # DoorLockRule.model_dump(exclude_unset=True) — used by client
 # ---------------------------------------------------------------------------
 
@@ -438,9 +534,7 @@ class TestLogSourceDeviceConfig:
         assert dc.display_name == "entry"
 
     def test_returns_none_when_absent(self) -> None:
-        source = LogSource.model_validate(
-            {"target": [{"type": "door", "id": "d1"}]}
-        )
+        source = LogSource.model_validate({"target": [{"type": "door", "id": "d1"}]})
         assert source.device_config is None
 
     def test_returns_none_for_empty_targets(self) -> None:

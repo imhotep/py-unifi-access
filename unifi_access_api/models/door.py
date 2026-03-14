@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unicodedata
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import BaseModel, BeforeValidator, field_validator
+from pydantic import BaseModel, BeforeValidator, field_validator, model_validator
 
 
 def _coerce_door_position(v: str | None) -> str:
@@ -81,6 +81,22 @@ class Door(BaseModel, frozen=True):
     is_bind_hub: bool = False
     door_position_status: CoercedDoorPosition = DoorPositionStatus.NONE
     door_lock_relay_status: DoorLockRelayStatus = DoorLockRelayStatus.LOCK
+    door_thumbnail: str | None = None
+    door_thumbnail_last_update: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_extras(cls, data: Any) -> Any:
+        """Flatten thumbnail fields from the nested extras dict."""
+        if isinstance(data, dict) and isinstance(extras := data.get("extras"), dict):
+            data = {**data}
+            data.pop("extras", None)
+            data.setdefault("door_thumbnail", extras.get("door_thumbnail"))
+            data.setdefault(
+                "door_thumbnail_last_update",
+                extras.get("door_thumbnail_last_update"),
+            )
+        return data
 
     @field_validator("name")
     @classmethod
