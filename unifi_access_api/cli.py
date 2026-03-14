@@ -9,7 +9,7 @@ import signal
 from collections.abc import AsyncIterator, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -287,6 +287,40 @@ def set_emergency(
 # ---------------------------------------------------------------------------
 
 
+def _resolve_output_paths(
+    no_save: bool,
+    output: str | None,
+    raw_file: str | None,
+    parsed_file: str | None,
+) -> tuple[str | None, str | None]:
+    """Return (raw_path, parsed_path) or (None, None) when saving is disabled."""
+    if no_save:
+        return None, None
+    ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+    basename = output or f"events_{ts}"
+    return (
+        raw_file or f"{basename}_raw.jsonl",
+        parsed_file or f"{basename}_parsed.jsonl",
+    )
+
+
+def _print_listen_summary(rf: str | None, raw_count: int, parsed_count: int) -> None:
+    """Print a summary after the listen loop finishes."""
+    if rf:
+        typer.secho(
+            f"\n{raw_count} raw / {parsed_count} parsed events written",
+            fg="green",
+        )
+        if raw_count > parsed_count:
+            typer.secho(
+                f"  {raw_count - parsed_count} event(s) failed to parse "
+                f"— check {rf} for raw data",
+                fg="yellow",
+            )
+    else:
+        typer.echo("\nStopped.")
+
+
 @app.command()
 def listen(
     ctx: typer.Context,
@@ -309,7 +343,8 @@ def listen(
         False, "--no-save", help="Disable writing output files"
     ),
 ) -> None:
-    """Listen to real-time websocket events.
+    """
+    Listen to real-time websocket events.
 
     By default writes two JSONL files:
       events_<datetime>_raw.jsonl    — every raw event (before parsing)
@@ -324,15 +359,7 @@ def listen(
         raw_count = 0
         parsed_count = 0
 
-        # Resolve output paths (always write unless --no-save)
-        if no_save:
-            rf = None
-            pf = None
-        else:
-            ts = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            basename = output or f"events_{ts}"
-            rf = raw_file or f"{basename}_raw.jsonl"
-            pf = parsed_file or f"{basename}_parsed.jsonl"
+        rf, pf = _resolve_output_paths(no_save, output, raw_file, parsed_file)
 
         loop = asyncio.get_running_loop()
         with contextlib.suppress(NotImplementedError):  # Windows
@@ -346,9 +373,7 @@ def listen(
                 def on_raw(raw: dict[str, Any]) -> None:
                     nonlocal raw_count
                     if raw_out:
-                        raw_out.write(
-                            json.dumps(raw, ensure_ascii=False) + "\n"
-                        )
+                        raw_out.write(json.dumps(raw, ensure_ascii=False) + "\n")
                         raw_out.flush()
                         raw_count += 1
 
@@ -356,9 +381,7 @@ def listen(
                     nonlocal parsed_count
                     dump = msg.model_dump()
                     if parsed_out:
-                        parsed_out.write(
-                            json.dumps(dump, ensure_ascii=False) + "\n"
-                        )
+                        parsed_out.write(json.dumps(dump, ensure_ascii=False) + "\n")
                         parsed_out.flush()
                         parsed_count += 1
                     typer.echo(json.dumps(dump, indent=2, ensure_ascii=False))
@@ -366,9 +389,7 @@ def listen(
                 handlers: dict[str, Any] = {"*": on_message}
                 client.start_websocket(
                     handlers,
-                    on_connect=lambda: typer.secho(
-                        "Websocket connected", fg="green"
-                    ),
+                    on_connect=lambda: typer.secho("Websocket connected", fg="green"),
                     on_disconnect=lambda: typer.secho(
                         "Websocket disconnected", fg="yellow"
                     ),
@@ -391,19 +412,7 @@ def listen(
             if parsed_out:
                 parsed_out.close()
 
-        if rf:
-            typer.secho(
-                f"\n{raw_count} raw / {parsed_count} parsed events written",
-                fg="green",
-            )
-            if raw_count > parsed_count:
-                typer.secho(
-                    f"  {raw_count - parsed_count} event(s) failed to parse "
-                    f"— check {rf} for raw data",
-                    fg="yellow",
-                )
-        else:
-            typer.echo("\nStopped.")
+        _print_listen_summary(rf, raw_count, parsed_count)
 
     _run(_task())
 
