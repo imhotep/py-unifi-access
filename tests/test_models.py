@@ -703,11 +703,12 @@ class TestInsightsAdd:
         assert msg.data.result == "ACCESS"
         assert msg.data.event_type == "access.door.unlock"
         assert msg.data.message == "Access Granted (Face)"
-        # Typed access — no dict digging needed in HA
+        # Scalar fields
         assert msg.data.metadata.actor.display_name == "Test User"
         assert msg.data.metadata.actor.type == "user"
-        assert msg.data.metadata.door.display_name == "Front Door"
         assert msg.data.metadata.authentication.display_name == "FACE"
+        # Target fields (lists, single dict coerced to one-element list)
+        assert msg.data.metadata.door[0].display_name == "Front Door"
 
     def test_empty_metadata_defaults(self) -> None:
         """Missing metadata entries default to empty InsightsMetadataEntry."""
@@ -722,7 +723,7 @@ class TestInsightsAdd:
         msg = create_from_unifi_dict(raw)
         assert isinstance(msg, InsightsAdd)
         assert msg.data.metadata.actor.display_name == ""
-        assert msg.data.metadata.door.id == ""
+        assert msg.data.metadata.door == []
 
     def test_extra_metadata_fields_preserved(self) -> None:
         """Unknown metadata keys are preserved via extra=allow."""
@@ -739,6 +740,81 @@ class TestInsightsAdd:
         msg = create_from_unifi_dict(raw)
         assert isinstance(msg, InsightsAdd)
         assert msg.data.metadata.actor.display_name == "Admin"
+
+    def test_device_as_list(self) -> None:
+        """Device arriving as a list of dicts is preserved as-is."""
+        raw: dict[str, Any] = {
+            "event": "access.logs.insights.add",
+            "data": {
+                "result": "ACCESS",
+                "metadata": {
+                    "device": [
+                        {
+                            "id": "dev-1",
+                            "type": "UA-G2-Pro",
+                            "display_name": "Front Hub",
+                            "alternate_name": "guid",
+                        },
+                    ],
+                    "actor": {
+                        "id": "user-1",
+                        "type": "user",
+                        "display_name": "Jon",
+                    },
+                },
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, InsightsAdd)
+        assert len(msg.data.metadata.device) == 1
+        assert msg.data.metadata.device[0].id == "dev-1"
+        assert msg.data.metadata.device[0].display_name == "Front Hub"
+        # Scalar actor remains a single entry
+        assert msg.data.metadata.actor.display_name == "Jon"
+
+    def test_door_as_single_dict_coerced_to_list(self) -> None:
+        """A single-dict target field is coerced into a one-element list."""
+        raw: dict[str, Any] = {
+            "event": "access.logs.insights.add",
+            "data": {
+                "result": "ACCESS",
+                "metadata": {
+                    "door": {
+                        "id": "door-1",
+                        "type": "door",
+                        "display_name": "Front Door",
+                    },
+                },
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, InsightsAdd)
+        assert len(msg.data.metadata.door) == 1
+        assert msg.data.metadata.door[0].display_name == "Front Door"
+
+    def test_multiple_targets_same_type(self) -> None:
+        """Multiple targets of the same type are preserved as a list."""
+        raw: dict[str, Any] = {
+            "event": "access.logs.insights.add",
+            "data": {
+                "result": "ACCESS",
+                "metadata": {
+                    "device": [
+                        {"id": "dev-1", "type": "UA-Hub", "display_name": "Hub A"},
+                        {
+                            "id": "dev-2",
+                            "type": "UA-Reader",
+                            "display_name": "Reader B",
+                        },
+                    ],
+                },
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, InsightsAdd)
+        assert len(msg.data.metadata.device) == 2
+        assert msg.data.metadata.device[0].display_name == "Hub A"
+        assert msg.data.metadata.device[1].display_name == "Reader B"
 
 
 # ---------------------------------------------------------------------------

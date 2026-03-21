@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .door import (
     CoercedDoorPosition,
@@ -435,6 +435,18 @@ class V2DeviceUpdate(WebsocketMessage, frozen=True):
 
 # -- logs.insights.add (access insight event) ------------------------------
 
+_TARGET_FIELDS: frozenset[str] = frozenset(
+    {
+        "device",
+        "door",
+        "building",
+        "camera",
+        "policy",
+        "opened_method",
+        "opened_direction",
+    }
+)
+
 
 class InsightsMetadataEntry(BaseModel, frozen=True):
     """Single metadata entry in an insights event."""
@@ -447,19 +459,45 @@ class InsightsMetadataEntry(BaseModel, frozen=True):
 
 
 class InsightsMetadata(BaseModel, frozen=True):
-    """Typed metadata from an insights event for HA automations."""
+    """
+    Typed metadata from an insights event for HA automations.
+
+    ``actor`` and ``authentication`` always arrive as a single dict.
+    The remaining fields (``device``, ``door``, ``building``, …) are
+    grouped by type and can contain zero, one, or many entries.
+    """
 
     actor: InsightsMetadataEntry = InsightsMetadataEntry()
-    door: InsightsMetadataEntry = InsightsMetadataEntry()
     authentication: InsightsMetadataEntry = InsightsMetadataEntry()
-    device: InsightsMetadataEntry = InsightsMetadataEntry()
-    building: InsightsMetadataEntry = InsightsMetadataEntry()
-    camera: InsightsMetadataEntry = InsightsMetadataEntry()
-    policy: InsightsMetadataEntry = InsightsMetadataEntry()
-    opened_method: InsightsMetadataEntry = InsightsMetadataEntry()
-    opened_direction: InsightsMetadataEntry = InsightsMetadataEntry()
+
+    device: list[InsightsMetadataEntry] = []
+    door: list[InsightsMetadataEntry] = []
+    building: list[InsightsMetadataEntry] = []
+    camera: list[InsightsMetadataEntry] = []
+    policy: list[InsightsMetadataEntry] = []
+    opened_method: list[InsightsMetadataEntry] = []
+    opened_direction: list[InsightsMetadataEntry] = []
 
     model_config = {"extra": "allow"}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_target_entries(cls, data: Any) -> Any:
+        """
+        Normalise target metadata values to lists.
+
+        The UniFi API groups *targets* by type.  When only one target of a
+        given type exists, the API may send it as a bare dict instead of a
+        one-element list.  Wrap bare dicts in a list for the list-typed
+        target fields so Pydantic validation succeeds.
+        """
+        if not isinstance(data, dict):
+            return data
+        data = {**data}
+        for key in _TARGET_FIELDS & data.keys():
+            if isinstance(data[key], dict):
+                data[key] = [data[key]]
+        return data
 
 
 class InsightsAddData(BaseModel, frozen=True):
