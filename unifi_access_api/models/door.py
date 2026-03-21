@@ -83,7 +83,7 @@ class Door(BaseModel, frozen=True):
     door_lock_relay_status: DoorLockRelayStatus = DoorLockRelayStatus.LOCK
     door_thumbnail: str | None = None
     door_thumbnail_last_update: int | None = None
-    lock_rule_status: DoorLockRuleStatus = DoorLockRuleStatus()
+    lock_rule_status: DoorLockRuleStatus | None = None
 
     @model_validator(mode="before")
     @classmethod

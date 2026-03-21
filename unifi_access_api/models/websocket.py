@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from .door import (
     CoercedDoorPosition,
+    DoorLockRuleStatus,
     DoorLockRuleType,
     DoorPositionStatus,
 )
@@ -39,6 +40,14 @@ class WsDoorLockRuleStatus(BaseModel, frozen=True):
     state: str = ""
 
     model_config = {"extra": "allow"}
+
+    def to_door_lock_rule_status(self) -> DoorLockRuleStatus:
+        """Convert to a ``DoorLockRuleStatus`` suitable for storing on a ``Door``.
+
+        Maps ``until`` (websocket expiry timestamp) to ``ended_time`` (REST API
+        field), making the otherwise implicit field correspondence explicit.
+        """
+        return DoorLockRuleStatus(type=self.type, ended_time=self.until)
 
 
 # -- location_update_v2 ---------------------------------------------------
