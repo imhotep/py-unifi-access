@@ -47,8 +47,6 @@ async with aiohttp.ClientSession() as session:
 
 ## Capturing WebSocket Messages
 
-<a name="capturing-websocket-messages"></a>
-
 If you encounter parsing errors or unexpected behaviour with WebSocket events,
 capturing the raw message stream helps narrow down the issue.
 The CLI (included in the `cli` extra) writes two files to the current directory:
