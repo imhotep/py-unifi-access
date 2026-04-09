@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from .const import (
     DEVICE_NOTIFICATIONS_URL,
+    DEVICES_URL,
     DOOR_LOCK_RULE_URL,
     DOOR_UNLOCK_URL,
     DOORS_EMERGENCY_URL,
@@ -211,6 +212,21 @@ class UnifiAccessApiClient:
         """
         await self._request(self._url(DOORS_URL))
 
+    # ------------------------------------------------------------------
+    # Device operations
+    # ------------------------------------------------------------------
+
+    async def get_devices(self) -> list[dict[str, Any]]:
+    """Fetch all devices, flattening hub-grouped nested arrays."""
+    raw = await self._request(self._url(DEVICES_URL))
+    devices: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, list):
+            devices.extend(item)
+        else:
+            devices.append(item)
+    return devices
+    
     # ------------------------------------------------------------------
     # Door operations
     # ------------------------------------------------------------------
