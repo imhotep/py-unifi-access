@@ -16,6 +16,7 @@ from unifi_access_api.models.door import (
     DoorPositionStatus,
     _coerce_door_position,
 )
+from unifi_access_api.models.user import User, UserStatus
 from unifi_access_api.models.websocket import (
     _EVENT_MODELS,
     BaseInfo,
@@ -1262,9 +1263,6 @@ class TestInsightsMetadataReaderCapture:
 # ---------------------------------------------------------------------------
 
 
-from unifi_access_api.models.user import User, UserStatus
-
-
 class TestUserStatus:
     def test_active_value(self) -> None:
         assert UserStatus.ACTIVE == "active"
@@ -1316,5 +1314,5 @@ class TestUserModel:
 
     def test_frozen_raises_on_mutation(self) -> None:
         user = User.model_validate({"id": "u1"})
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             user.name = "changed"  # type: ignore[misc]
