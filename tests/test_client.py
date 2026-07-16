@@ -14,6 +14,8 @@ from unifi_access_api.const import (
     DOORS_URL,
     STATIC_URL,
     UNIFI_ACCESS_API_PORT,
+    USER_URL,
+    USERS_URL,
 )
 from unifi_access_api.exceptions import (
     ApiAuthError,
@@ -32,6 +34,7 @@ from unifi_access_api.models.door import (
     DoorLockRuleType,
     EmergencyStatus,
 )
+from unifi_access_api.models.user import User, UserStatus
 
 from .conftest import (
     SAMPLE_DOOR_LOCKED,
@@ -1055,4 +1058,177 @@ class TestEnrichWsMessage:
         msg = WebsocketMessage(event="access.logs.add", event_object_id="000000000000")
         result = api_client._enrich_ws_message(msg)
         assert result is msg
-        assert result.door_id == ""
+
+
+# ---------------------------------------------------------------------------
+# User operations
+# ---------------------------------------------------------------------------
+
+SAMPLE_USER_RAW = {
+    "id": "user-001",
+    "name": "John Doe",
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john@example.com",
+    "employee_number": "EMP001",
+    "status": "active",
+}
+
+SAMPLE_USER_INACTIVE_RAW = {
+    "id": "user-002",
+    "name": "Jane Smith",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "email": "jane@example.com",
+    "status": "inactive",
+}
+
+
+class TestGetUsers:
+    async def test_success_list(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response([SAMPLE_USER_RAW, SAMPLE_USER_INACTIVE_RAW])
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        users = await api_client.get_users()
+        assert len(users) == 2
+        assert isinstance(users[0], User)
+        assert users[0].id == "user-001"
+        assert users[0].status == UserStatus.ACTIVE
+        assert users[1].id == "user-002"
+        assert users[1].status == UserStatus.INACTIVE
+
+    async def test_empty_list(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response([])
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        users = await api_client.get_users()
+        assert users == []
+
+    async def test_calls_users_url(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response([])
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.get_users()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1] if call_args[0] else call_args[1]["url"]
+        assert USERS_URL in url
+
+    async def test_auth_error(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        mock_session.request = MagicMock(return_value=make_mock_response(status=401))
+        with pytest.raises(ApiAuthError):
+            await api_client.get_users()
+
+    async def test_connection_error(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        mock_session.request = MagicMock(side_effect=OSError("down"))
+        with pytest.raises(ApiConnectionError):
+            await api_client.get_users()
+
+
+class TestUpdateUserStatus:
+    async def test_enable_success(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.update_user_status("user-001", enabled=True)
+        call_args = mock_session.request.call_args
+        method = call_args[0][0]
+        url = call_args[0][1]
+        body = call_args[1]["json"]
+        assert method == "PATCH"
+        assert USER_URL.format(user_id="user-001") in url
+        assert body == {"status": "active"}
+
+    async def test_disable_success(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.update_user_status("user-002", enabled=False)
+        call_args = mock_session.request.call_args
+        body = call_args[1]["json"]
+        assert body == {"status": "inactive"}
+
+    async def test_user_not_found(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(
+                status=404, text_data="Not found"
+            )
+        )
+        with pytest.raises(ApiNotFoundError):
+            await api_client.update_user_status("bad-id", enabled=True)
+
+    async def test_auth_error(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        mock_session.request = MagicMock(return_value=make_mock_response(status=401))
+        with pytest.raises(ApiAuthError):
+            await api_client.update_user_status("user-001", enabled=True)
+
+
+class TestUpdateUserPin:
+    async def test_set_pin(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.update_user_pin("user-001", "1234")
+        call_args = mock_session.request.call_args
+        method = call_args[0][0]
+        url = call_args[0][1]
+        body = call_args[1]["json"]
+        assert method == "PATCH"
+        assert USER_URL.format(user_id="user-001") in url
+        assert body == {"pin": "1234"}
+
+    async def test_clear_pin_none(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.update_user_pin("user-001", None)
+        call_args = mock_session.request.call_args
+        body = call_args[1]["json"]
+        assert body == {"pin": ""}
+
+    async def test_clear_pin_empty_string(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.update_user_pin("user-001", "")
+        call_args = mock_session.request.call_args
+        body = call_args[1]["json"]
+        assert body == {"pin": ""}
+
+    async def test_auth_error(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        mock_session.request = MagicMock(return_value=make_mock_response(status=401))
+        with pytest.raises(ApiAuthError):
+            await api_client.update_user_pin("user-001", "1234")

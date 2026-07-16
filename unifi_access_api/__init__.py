@@ -21,6 +21,7 @@ from .models.door import (
     DoorPositionStatus,
     EmergencyStatus,
 )
+from .models.user import User, UserStatus
 from .models.websocket import (
     BaseInfo,
     BaseInfoData,
@@ -121,6 +122,8 @@ __all__ = [
     "UnifiAccessApiClient",
     "UnifiAccessError",
     "UnifiAccessWebsocket",
+    "User",
+    "UserStatus",
     "V2DeviceLocationState",
     "V2DeviceUpdate",
     "V2DeviceUpdateData",

@@ -24,6 +24,8 @@ from .const import (
     PROTECT_META_INFO_URL,
     STATIC_URL,
     UNIFI_ACCESS_API_PORT,
+    USER_URL,
+    USERS_URL,
 )
 from .exceptions import (
     ApiAuthError,
@@ -41,6 +43,7 @@ from .models.door import (
     DoorLockRuleStatus,
     EmergencyStatus,
 )
+from .models.user import User
 from .models.websocket import WebsocketMessage
 from .websocket import UnifiAccessWebsocket, WsMessageHandler, WsRawMessageHandler
 
@@ -418,6 +421,31 @@ class UnifiAccessApiClient:
         )
         self._websocket.start()
         return self._websocket
+
+    # ------------------------------------------------------------------
+    # User operations
+    # ------------------------------------------------------------------
+
+    async def get_users(self) -> list[User]:
+        """Fetch all users."""
+        return await self._request_list(User, self._url(USERS_URL))
+
+    async def update_user_status(self, user_id: str, *, enabled: bool) -> None:
+        """Enable or disable a user."""
+        status = "active" if enabled else "inactive"
+        await self._request(
+            self._url(USER_URL.format(user_id=user_id)),
+            "PATCH",
+            {"status": status},
+        )
+
+    async def update_user_pin(self, user_id: str, pin: str | None) -> None:
+        """Update or remove a user's PIN (pass None or empty string to remove)."""
+        await self._request(
+            self._url(USER_URL.format(user_id=user_id)),
+            "PATCH",
+            {"pin": pin or ""},
+        )
 
     # ------------------------------------------------------------------
     # HTTP helper
