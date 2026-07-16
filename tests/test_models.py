@@ -16,6 +16,7 @@ from unifi_access_api.models.door import (
     DoorPositionStatus,
     _coerce_door_position,
 )
+from unifi_access_api.models.user import User, UserStatus
 from unifi_access_api.models.websocket import (
     _EVENT_MODELS,
     BaseInfo,
@@ -1255,3 +1256,63 @@ class TestInsightsMetadataReaderCapture:
             }
         )
         assert meta.reader_capture == []
+
+
+# ---------------------------------------------------------------------------
+# User model
+# ---------------------------------------------------------------------------
+
+
+class TestUserStatus:
+    def test_active_value(self) -> None:
+        assert UserStatus.ACTIVE == "active"
+
+    def test_inactive_value(self) -> None:
+        assert UserStatus.INACTIVE == "inactive"
+
+
+class TestUserModel:
+    def test_minimal_required_fields(self) -> None:
+        user = User.model_validate({"id": "abc123"})
+        assert user.id == "abc123"
+        assert user.name == ""
+        assert user.status == UserStatus.ACTIVE
+        assert user.pin_code is None
+
+    def test_all_optional_fields(self) -> None:
+        user = User.model_validate(
+            {
+                "id": "u1",
+                "name": "John Doe",
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john@example.com",
+                "employee_number": "EMP001",
+                "status": "inactive",
+                "pin_code": "1234",
+            }
+        )
+        assert user.first_name == "John"
+        assert user.last_name == "Doe"
+        assert user.email == "john@example.com"
+        assert user.employee_number == "EMP001"
+        assert user.status == UserStatus.INACTIVE
+        assert user.pin_code == "1234"
+
+    def test_is_active_true_when_active(self) -> None:
+        user = User.model_validate({"id": "u1", "status": "active"})
+        assert user.is_active is True
+
+    def test_is_active_false_when_inactive(self) -> None:
+        user = User.model_validate({"id": "u1", "status": "inactive"})
+        assert user.is_active is False
+
+    def test_extra_fields_allowed(self) -> None:
+        # extra="allow" means unknown fields don't raise
+        user = User.model_validate({"id": "u1", "some_new_api_field": "value"})
+        assert user.id == "u1"
+
+    def test_frozen_raises_on_mutation(self) -> None:
+        user = User.model_validate({"id": "u1"})
+        with pytest.raises(ValidationError):
+            user.name = "changed"  # type: ignore[misc]
