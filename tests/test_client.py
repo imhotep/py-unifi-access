@@ -1170,9 +1170,7 @@ class TestUpdateUserStatus:
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
     ) -> None:
         mock_session.request = MagicMock(
-            return_value=make_mock_response(
-                status=404, text_data="Not found"
-            )
+            return_value=make_mock_response(status=404, text_data="Not found")
         )
         with pytest.raises(ApiNotFoundError):
             await api_client.update_user_status("bad-id", enabled=True)
