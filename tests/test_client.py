@@ -583,6 +583,63 @@ class TestUnlockDoor:
         call_kwargs = mock_session.request.call_args[1]
         assert call_kwargs["json"] is None
 
+    async def test_unlock_with_control_cmd_open(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.unlock_door("d1", control_cmd="open")
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["params"] == {"control_cmd": "open"}
+        assert call_kwargs["json"] is None
+
+    async def test_unlock_with_control_cmd_close(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.unlock_door("d1", control_cmd="close")
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["params"] == {"control_cmd": "close"}
+
+    async def test_unlock_with_control_cmd_stop(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.unlock_door("d1", control_cmd="stop")
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["params"] == {"control_cmd": "stop"}
+
+    async def test_unlock_with_reader_id(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.unlock_door("d1", control_cmd="open", reader_id="aa:bb:cc")
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["params"]["reader_id"] == "aa:bb:cc"
+        assert call_kwargs["params"]["control_cmd"] == "open"
+
+    async def test_unlock_no_control_cmd_sends_no_params(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.unlock_door("d1")
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs.get("params") is None
+
 
 # ---------------------------------------------------------------------------
 # get/set door lock rule

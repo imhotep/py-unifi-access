@@ -276,6 +276,9 @@ class UnifiAccessApiClient:
         self,
         door_id: str,
         *,
+        control_cmd: str | None = None,
+        reader_id: str | None = None,
+        entry_method: str | None = None,
         actor_id: str | None = None,
         actor_name: str | None = None,
         extra: dict[str, Any] | None = None,
@@ -285,6 +288,9 @@ class UnifiAccessApiClient:
 
         Args:
             door_id: Identity ID of the door.
+            control_cmd: Motor command — "open", "close", or "stop" (UGT gates).
+            reader_id: Reader device MAC to act as (optional).
+            entry_method: Entry direction hint, e.g. "in" (optional).
             actor_id: Custom actor ID for system logs and webhooks.
                 Required if actor_name is provided.
             actor_name: Custom actor name. Required if actor_id is provided.
@@ -295,6 +301,13 @@ class UnifiAccessApiClient:
             raise ValueError(
                 "actor_id and actor_name must both be provided or both omitted"
             )
+        params: dict[str, str] = {}
+        if control_cmd is not None:
+            params["control_cmd"] = control_cmd
+        if reader_id is not None:
+            params["reader_id"] = reader_id
+        if entry_method is not None:
+            params["entry_method"] = entry_method
         body: dict[str, Any] | None = None
         if actor_id is not None or actor_name is not None or extra is not None:
             body = {
@@ -310,6 +323,7 @@ class UnifiAccessApiClient:
             self._url(DOOR_UNLOCK_URL.format(door_id=door_id)),
             "PUT",
             body,
+            params=params or None,
         )
 
     async def get_door_lock_rule(self, door_id: str) -> DoorLockRuleStatus:
