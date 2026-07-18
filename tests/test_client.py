@@ -14,6 +14,7 @@ from unifi_access_api.const import (
     DOORS_URL,
     STATIC_URL,
     UNIFI_ACCESS_API_PORT,
+    USER_PIN_CODES_URL,
     USER_URL,
     USERS_URL,
 )
@@ -1128,7 +1129,7 @@ SAMPLE_USER_RAW = {
     "last_name": "Doe",
     "email": "john@example.com",
     "employee_number": "EMP001",
-    "status": "active",
+    "status": "ACTIVE",
 }
 
 SAMPLE_USER_INACTIVE_RAW = {
@@ -1137,7 +1138,7 @@ SAMPLE_USER_INACTIVE_RAW = {
     "first_name": "Jane",
     "last_name": "Smith",
     "email": "jane@example.com",
-    "status": "inactive",
+    "status": "DEACTIVATED",
 }
 
 
@@ -1155,7 +1156,7 @@ class TestGetUsers:
         assert users[0].id == "user-001"
         assert users[0].status == UserStatus.ACTIVE
         assert users[1].id == "user-002"
-        assert users[1].status == UserStatus.INACTIVE
+        assert users[1].status == UserStatus.DEACTIVATED
 
     async def test_empty_list(
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
@@ -1207,9 +1208,9 @@ class TestUpdateUserStatus:
         method = call_args[0][0]
         url = call_args[0][1]
         body = call_args[1]["json"]
-        assert method == "PATCH"
+        assert method == "PUT"
         assert USER_URL.format(user_id="user-001") in url
-        assert body == {"status": "active"}
+        assert body == {"status": "ACTIVE"}
 
     async def test_disable_success(
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
@@ -1221,7 +1222,7 @@ class TestUpdateUserStatus:
         await api_client.update_user_status("user-002", enabled=False)
         call_args = mock_session.request.call_args
         body = call_args[1]["json"]
-        assert body == {"status": "inactive"}
+        assert body == {"status": "DEACTIVATED"}
 
     async def test_user_not_found(
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
@@ -1253,9 +1254,9 @@ class TestUpdateUserPin:
         method = call_args[0][0]
         url = call_args[0][1]
         body = call_args[1]["json"]
-        assert method == "PATCH"
-        assert USER_URL.format(user_id="user-001") in url
-        assert body == {"pin": "1234"}
+        assert method == "PUT"
+        assert USER_PIN_CODES_URL.format(user_id="user-001") in url
+        assert body == {"pin_code": "1234"}
 
     async def test_clear_pin_none(
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
@@ -1266,8 +1267,10 @@ class TestUpdateUserPin:
         )
         await api_client.update_user_pin("user-001", None)
         call_args = mock_session.request.call_args
-        body = call_args[1]["json"]
-        assert body == {"pin": ""}
+        method = call_args[0][0]
+        url = call_args[0][1]
+        assert method == "DELETE"
+        assert USER_PIN_CODES_URL.format(user_id="user-001") in url
 
     async def test_clear_pin_empty_string(
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
@@ -1278,8 +1281,8 @@ class TestUpdateUserPin:
         )
         await api_client.update_user_pin("user-001", "")
         call_args = mock_session.request.call_args
-        body = call_args[1]["json"]
-        assert body == {"pin": ""}
+        method = call_args[0][0]
+        assert method == "DELETE"
 
     async def test_auth_error(
         self, api_client: UnifiAccessApiClient, mock_session: AsyncMock

@@ -1265,10 +1265,13 @@ class TestInsightsMetadataReaderCapture:
 
 class TestUserStatus:
     def test_active_value(self) -> None:
-        assert UserStatus.ACTIVE == "active"
+        assert UserStatus.ACTIVE == "ACTIVE"
 
-    def test_inactive_value(self) -> None:
-        assert UserStatus.INACTIVE == "inactive"
+    def test_deactivated_value(self) -> None:
+        assert UserStatus.DEACTIVATED == "DEACTIVATED"
+
+    def test_pending_value(self) -> None:
+        assert UserStatus.PENDING == "PENDING"
 
 
 class TestUserModel:
@@ -1288,7 +1291,7 @@ class TestUserModel:
                 "last_name": "Doe",
                 "email": "john@example.com",
                 "employee_number": "EMP001",
-                "status": "inactive",
+                "status": "DEACTIVATED",
                 "pin_code": "1234",
             }
         )
@@ -1296,15 +1299,19 @@ class TestUserModel:
         assert user.last_name == "Doe"
         assert user.email == "john@example.com"
         assert user.employee_number == "EMP001"
-        assert user.status == UserStatus.INACTIVE
+        assert user.status == UserStatus.DEACTIVATED
         assert user.pin_code == "1234"
 
     def test_is_active_true_when_active(self) -> None:
-        user = User.model_validate({"id": "u1", "status": "active"})
+        user = User.model_validate({"id": "u1", "status": "ACTIVE"})
         assert user.is_active is True
 
-    def test_is_active_false_when_inactive(self) -> None:
-        user = User.model_validate({"id": "u1", "status": "inactive"})
+    def test_is_active_false_when_deactivated(self) -> None:
+        user = User.model_validate({"id": "u1", "status": "DEACTIVATED"})
+        assert user.is_active is False
+
+    def test_is_active_false_when_pending(self) -> None:
+        user = User.model_validate({"id": "u1", "status": "PENDING"})
         assert user.is_active is False
 
     def test_extra_fields_allowed(self) -> None:
