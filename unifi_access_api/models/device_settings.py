@@ -17,7 +17,7 @@ class AccessMethod(BaseModel, frozen=True):
         return self.enabled == "yes"
 
 
-class FaceAccessMethod(AccessMethod):
+class FaceAccessMethod(AccessMethod, frozen=True):
     """Face recognition access method with additional configuration."""
 
     anti_spoofing_level: str = "high"
