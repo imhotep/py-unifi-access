@@ -11,6 +11,12 @@ from .exceptions import (
     ApiSSLError,
     UnifiAccessError,
 )
+from .models.device_settings import (
+    AccessMethod,
+    AccessMethods,
+    DeviceSettings,
+    FaceAccessMethod,
+)
 from .models.door import (
     Device,
     Door,
@@ -70,6 +76,8 @@ from .models.websocket import (
 from .websocket import UnifiAccessWebsocket, WsMessageHandler
 
 __all__ = [
+    "AccessMethod",
+    "AccessMethods",
     "ApiAuthError",
     "ApiConnectionError",
     "ApiError",
@@ -80,6 +88,7 @@ __all__ = [
     "BaseInfo",
     "BaseInfoData",
     "Device",
+    "DeviceSettings",
     "DeviceUpdate",
     "DeviceUpdateData",
     "DeviceUpdateDoor",
@@ -92,6 +101,7 @@ __all__ = [
     "EmergencyState",
     "EmergencyStatus",
     "EventMeta",
+    "FaceAccessMethod",
     "HwDoorbell",
     "HwDoorbellData",
     "InsightsAdd",

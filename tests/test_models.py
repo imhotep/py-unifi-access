@@ -7,6 +7,12 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from unifi_access_api.models.device_settings import (
+    AccessMethod,
+    AccessMethods,
+    DeviceSettings,
+    FaceAccessMethod,
+)
 from unifi_access_api.models.door import (
     Device,
     Door,
@@ -1323,3 +1329,106 @@ class TestUserModel:
         user = User.model_validate({"id": "u1"})
         with pytest.raises(ValidationError):
             user.name = "changed"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# DeviceSettings models
+# ---------------------------------------------------------------------------
+
+
+class TestAccessMethod:
+    def test_is_enabled_yes(self) -> None:
+        m = AccessMethod(enabled="yes")
+        assert m.is_enabled is True
+
+    def test_is_enabled_no(self) -> None:
+        m = AccessMethod(enabled="no")
+        assert m.is_enabled is False
+
+    def test_default_is_disabled(self) -> None:
+        m = AccessMethod()
+        assert m.is_enabled is False
+
+    def test_extra_fields_allowed(self) -> None:
+        m = AccessMethod.model_validate({"enabled": "yes", "future_field": "x"})
+        assert m.is_enabled is True
+
+    def test_frozen(self) -> None:
+        m = AccessMethod()
+        with pytest.raises(ValidationError):
+            m.enabled = "yes"  # type: ignore[misc]
+
+
+class TestFaceAccessMethod:
+    def test_defaults(self) -> None:
+        f = FaceAccessMethod()
+        assert f.enabled == "no"
+        assert f.anti_spoofing_level == "high"
+        assert f.detect_distance == "near"
+
+    def test_parse_from_api_response(self) -> None:
+        f = FaceAccessMethod.model_validate(
+            {
+                "enabled": "yes",
+                "anti_spoofing_level": "medium",
+                "detect_distance": "far",
+            }
+        )
+        assert f.is_enabled is True
+        assert f.anti_spoofing_level == "medium"
+        assert f.detect_distance == "far"
+
+
+class TestAccessMethods:
+    def test_defaults(self) -> None:
+        a = AccessMethods()
+        assert a.nfc.is_enabled is True
+        assert a.pin_code.is_enabled is True
+        assert a.face.is_enabled is False
+        assert a.qr_code.is_enabled is False
+
+    def test_parse_full_api_response(self) -> None:
+        raw = {
+            "face": {
+                "enabled": "yes",
+                "anti_spoofing_level": "high",
+                "detect_distance": "near",
+            },
+            "nfc": {"enabled": "yes"},
+            "pin_code": {"enabled": "yes", "pin_code_shuffle": "no"},
+            "bt_tap": {"enabled": "no"},
+            "bt_button": {"enabled": "yes"},
+            "qr_code": {"enabled": "no"},
+            "touch_pass": {"enabled": "no"},
+        }
+        a = AccessMethods.model_validate(raw)
+        assert a.face.is_enabled is True
+        assert a.bt_tap.is_enabled is False
+
+
+class TestDeviceSettings:
+    def test_parse_api_response(self) -> None:
+        raw = {
+            "device_id": "dev-abc",
+            "access_methods": {
+                "face": {
+                    "enabled": "no",
+                    "anti_spoofing_level": "high",
+                    "detect_distance": "near",
+                },
+                "nfc": {"enabled": "yes"},
+            },
+        }
+        s = DeviceSettings.model_validate(raw)
+        assert s.device_id == "dev-abc"
+        assert s.access_methods.face.is_enabled is False
+        assert s.access_methods.nfc.is_enabled is True
+
+    def test_extra_fields_allowed(self) -> None:
+        s = DeviceSettings.model_validate({"device_id": "x", "unknown": "y"})
+        assert s.device_id == "x"
+
+    def test_defaults(self) -> None:
+        s = DeviceSettings()
+        assert s.device_id == ""
+        assert s.access_methods.face.is_enabled is False

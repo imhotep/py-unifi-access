@@ -10,6 +10,7 @@ import pytest
 from unifi_access_api.client import UnifiAccessApiClient, _map_exceptions
 from unifi_access_api.const import (
     DEVICE_NOTIFICATIONS_URL,
+    DEVICE_SETTINGS_URL,
     DEVICES_URL,
     DOORS_URL,
     STATIC_URL,
@@ -27,6 +28,7 @@ from unifi_access_api.exceptions import (
     ApiRateLimitError,
     ApiSSLError,
 )
+from unifi_access_api.models.device_settings import DeviceSettings
 from unifi_access_api.models.door import (
     Device,
     Door,
@@ -1290,3 +1292,91 @@ class TestUpdateUserPin:
         mock_session.request = MagicMock(return_value=make_mock_response(status=401))
         with pytest.raises(ApiAuthError):
             await api_client.update_user_pin("user-001", "1234")
+
+
+# ---------------------------------------------------------------------------
+# get/put device settings
+# ---------------------------------------------------------------------------
+
+SAMPLE_DEVICE_SETTINGS_RAW = {
+    "device_id": "dev-001",
+    "access_methods": {
+        "face": {
+            "enabled": "no",
+            "anti_spoofing_level": "high",
+            "detect_distance": "near",
+        },
+        "nfc": {"enabled": "yes"},
+        "pin_code": {"enabled": "yes", "pin_code_shuffle": "no"},
+        "bt_tap": {"enabled": "yes"},
+        "bt_button": {"enabled": "yes"},
+        "qr_code": {"enabled": "no"},
+        "touch_pass": {"enabled": "no"},
+    },
+}
+
+
+class TestDeviceSettingsOps:
+    async def test_get_device_settings(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(SAMPLE_DEVICE_SETTINGS_RAW)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        result = await api_client.get_device_settings("dev-001")
+        assert isinstance(result, DeviceSettings)
+        assert result.device_id == "dev-001"
+        assert result.access_methods.face.enabled == "no"
+        assert result.access_methods.face.anti_spoofing_level == "high"
+        assert result.access_methods.nfc.enabled == "yes"
+        call_args = mock_session.request.call_args
+        assert "dev-001/settings" in call_args[0][1]
+        assert call_args[0][0] == "GET"
+
+    async def test_get_device_settings_uses_correct_url(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(SAMPLE_DEVICE_SETTINGS_RAW)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.get_device_settings("abc-123")
+        call_args = mock_session.request.call_args
+        assert DEVICE_SETTINGS_URL.format(device_id="abc-123") in call_args[0][1]
+
+    async def test_put_device_settings_enable_face(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.put_device_settings(
+            "dev-001", {"face": {"enabled": "yes", "anti_spoofing_level": "high"}}
+        )
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["json"] == {
+            "access_methods": {
+                "face": {"enabled": "yes", "anti_spoofing_level": "high"}
+            }
+        }
+        assert mock_session.request.call_args[0][0] == "PUT"
+
+    async def test_put_device_settings_disable_face(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        data = _make_success_response(None)
+        mock_session.request = MagicMock(
+            return_value=make_mock_response(json_data=data)
+        )
+        await api_client.put_device_settings("dev-001", {"face": {"enabled": "no"}})
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["json"] == {"access_methods": {"face": {"enabled": "no"}}}
+
+    async def test_get_device_settings_auth_error(
+        self, api_client: UnifiAccessApiClient, mock_session: AsyncMock
+    ) -> None:
+        mock_session.request = MagicMock(return_value=make_mock_response(status=401))
+        with pytest.raises(ApiAuthError):
+            await api_client.get_device_settings("dev-001")
