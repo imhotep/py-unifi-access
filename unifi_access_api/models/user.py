@@ -10,8 +10,9 @@ from pydantic import BaseModel
 class UserStatus(StrEnum):
     """User account status."""
 
-    ACTIVE = "active"
-    INACTIVE = "inactive"
+    ACTIVE = "ACTIVE"
+    PENDING = "PENDING"
+    DEACTIVATED = "DEACTIVATED"
 
 
 class User(BaseModel, frozen=True):

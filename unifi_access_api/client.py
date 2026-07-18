@@ -25,6 +25,7 @@ from .const import (
     PROTECT_META_INFO_URL,
     STATIC_URL,
     UNIFI_ACCESS_API_PORT,
+    USER_PIN_CODES_URL,
     USER_URL,
     USERS_URL,
 )
@@ -448,20 +449,20 @@ class UnifiAccessApiClient:
 
     async def update_user_status(self, user_id: str, *, enabled: bool) -> None:
         """Enable or disable a user."""
-        status = "active" if enabled else "inactive"
+        status = "ACTIVE" if enabled else "DEACTIVATED"
         await self._request(
             self._url(USER_URL.format(user_id=user_id)),
-            "PATCH",
+            "PUT",
             {"status": status},
         )
 
     async def update_user_pin(self, user_id: str, pin: str | None) -> None:
-        """Update or remove a user's PIN (pass None or empty string to remove)."""
-        await self._request(
-            self._url(USER_URL.format(user_id=user_id)),
-            "PATCH",
-            {"pin": pin or ""},
-        )
+        """Assign or remove a user's PIN (pass None or empty string to remove)."""
+        url = self._url(USER_PIN_CODES_URL.format(user_id=user_id))
+        if pin:
+            await self._request(url, "PUT", {"pin_code": pin})
+        else:
+            await self._request(url, "DELETE")
 
     # ------------------------------------------------------------------
     # Device settings operations
