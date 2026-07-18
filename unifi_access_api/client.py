@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from .const import (
     DEVICE_NOTIFICATIONS_URL,
+    DEVICE_SETTINGS_URL,
     DEVICES_URL,
     DOOR_LOCK_RULE_URL,
     DOOR_UNLOCK_URL,
@@ -36,6 +37,7 @@ from .exceptions import (
     ApiRateLimitError,
     ApiSSLError,
 )
+from .models.device_settings import DeviceSettings
 from .models.door import (
     Device,
     Door,
@@ -459,6 +461,27 @@ class UnifiAccessApiClient:
             self._url(USER_URL.format(user_id=user_id)),
             "PATCH",
             {"pin": pin or ""},
+        )
+
+    # ------------------------------------------------------------------
+    # Device settings operations
+    # ------------------------------------------------------------------
+
+    async def get_device_settings(self, device_id: str) -> DeviceSettings:
+        """Fetch access method settings for a device."""
+        return await self._request_obj(
+            DeviceSettings,
+            self._url(DEVICE_SETTINGS_URL.format(device_id=device_id)),
+        )
+
+    async def put_device_settings(
+        self, device_id: str, access_methods: dict[str, Any]
+    ) -> None:
+        """Update access method settings for a device."""
+        await self._request(
+            self._url(DEVICE_SETTINGS_URL.format(device_id=device_id)),
+            "PUT",
+            {"access_methods": access_methods},
         )
 
     # ------------------------------------------------------------------
