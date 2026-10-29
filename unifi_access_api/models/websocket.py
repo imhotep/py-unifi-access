@@ -416,6 +416,12 @@ class V2LocationUpdateData(BaseModel, frozen=True):
 
     model_config = {"extra": "allow"}
 
+    @field_validator("device_ids", mode="before")
+    @classmethod
+    def _coerce_device_ids(cls, value: Any) -> Any:
+        """Accept a null device list by converting it to an empty list."""
+        return [] if value is None else value
+
 
 class V2LocationUpdate(WebsocketMessage, frozen=True):
     """V2 location update websocket event."""

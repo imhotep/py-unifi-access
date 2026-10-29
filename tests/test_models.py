@@ -694,6 +694,20 @@ class TestV2LocationUpdate:
         assert msg.data.thumbnail is not None
         assert msg.data.thumbnail.url == "/preview/test.png"
 
+    def test_null_device_ids(self) -> None:
+        """A null device_ids list is parsed as an empty list."""
+        raw: dict[str, Any] = {
+            "event": "access.data.v2.location.update",
+            "data": {
+                "id": "loc-1",
+                "location_type": "door",
+                "device_ids": None,
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, V2LocationUpdate)
+        assert msg.data.device_ids == []
+
     def test_parses_with_lock_rules(self) -> None:
         """V2 location update with remain_lock/remain_unlock is parsed."""
         raw: dict[str, Any] = {
